@@ -1,0 +1,219 @@
+---
+title: "Pew Research NASA survey"
+warning: FALSE
+---
+
+
+Recreation of data visualization from this Pew Research report, p 28. 
+https://www.pewresearch.org/science/wp-content/uploads/sites/16/2023/07/PS_2023.07.20_Space_FINAL.pdf
+
+
+libraries
+```{r, warning = FALSE, echo = FALSE}
+library(tidyverse)
+library(ggtext)
+```
+
+```{r}
+# takes care of text sizes when the final graph is exported.
+camcorder::gg_record(
+  dir = "img",
+  width = 639 * 0.0264658333,
+  height = 932 * 0.0264658333,
+  units = "cm", 
+ #bg = "white",
+)
+
+# to get width and height in pixels, the screenshotting tool ksnip which annotates dimensions
+# of screenshots can be used. Details are here: https://github.com/ksnip/ksnip/tree/master
+```
+
+
+Link to video with code: https://www.youtube.com/watch?v=k34IjRXq1BI
+
+Loading data
+```{r}
+rawdata2 <- tibble::tribble(
+                                                                    ~task, ~Rep, ~Dem, ~"Dem-Rep",
+                  "Monitor asteroids, other objects that could hit Earth",    57L,  64L,     7L,
+                        "Monitor key parts of the Earth's climate system",    30L,  69L,     39L,
+   "Conduct scientific research on how space travel affects human health",    26L,  32L,     6L,
+              "Develop technologies that could be adapted for other uses",    34L,  37L,     3L,
+       "Conduct basic scientific research to increase knowledge of space",    35L,  47L,     12L,
+  "Seach for materials and natural resources that could be used on Earth",    29L,  30L,     1L,
+                    "Search for life and planets that could support life",    14L,  18L,     4L,
+                             "Send human astronauts to explore the moon",     13L,  12L,     -1L,
+                                 "Send human astronauts to explore Mars",     10L,  12L,     2L
+  )
+```
+
+
+Data prep
+```{r}
+us_adults2 <- rawdata2 %>% 
+  janitor::clean_names() %>% 
+  arrange(dem_rep) %>% 
+  mutate(task = str_wrap(task, 30)) %>% # splitting the text after 30 characters
+  mutate(task = factor(task, levels=task))
+
+rearranged_data2 <- us_adults2 %>% 
+  select(task:dem) %>% 
+  pivot_longer(
+    cols = 2:3,
+    names_to = "group",
+    values_to = "percentage"
+  )
+```
+
+
+Text labels and color palette
+```{r}
+color_palette2 <- c('rep'='#A52A2A', 'dem' = '#000080')
+title <- "Partisans rank many NASA priorities similarly, but\nDemocrats give higher priority to climate monitoring"
+subtitle <- "*% of U.S. adults who say each of the following should be a *top priority* for <br>
+NASA*"
+caption <- 'Note: Respondents who gave other responses or did not give an answer are not shown.\nSource: Survey of U.S. adults conducted May 30–June 4, 2023.\n“Americans’ Views of Space: U.S. Role, NASA Priorities and Impact of Private Companies”'
+#text using markdown notation like text wrapped in ** and <br> etc.
+
+#creating dummy dataset to adjust labels 
+buffer = 0.3
+demrep_labels <- us_adults2 %>% 
+  mutate(
+    hjust_dem = ifelse(dem <= rep, 1 + buffer, 0 - buffer),
+    hjust_rep = ifelse(dem > rep, 1 + buffer, 0 - buffer)
+  )
+```
+
+
+Creating the plot
+```{r}
+p <- rearranged_data2 %>% 
+  ggplot(aes(x=percentage, y = task, col= group)) +
+  geom_point(size = 4) +
+  geom_richtext( # richtext as opposed to text puts labels in boxes
+    data = demrep_labels,
+    aes(x = dem, y = task, label = dem, hjust = hjust_dem), 
+    color = color_palette2['dem'],
+    size = 4,
+    label.color = NA
+  ) +
+  geom_richtext(
+    data = demrep_labels,
+    aes(x = rep, y = task, label = rep, hjust = hjust_rep),
+    color = color_palette2['rep'],
+    size = 4,
+    label.color = NA
+  ) +
+  labs(
+    x = element_blank(),
+    y = element_blank(),
+    title = title,
+    subtitle = subtitle,
+    caption = caption
+  ) +
+  annotate(
+    'text',
+    x = 57,
+    y = 9.5,
+    size = 4,
+    label = 'Dem/\nlean Dem', 
+    color = color_palette2['dem'], 
+    fontface = 'bold'
+  ) +
+  annotate(
+    'text',
+    x = 25,
+    y = 9.5,
+    size = 4,
+    label = 'Rep/\nlean Rep', 
+    color = color_palette2['rep'], 
+    fontface = 'bold'
+  ) +
+  annotate(
+    'text',
+    x = -72,
+    y = -0.6,
+    hjust = 0,
+    label = str_to_upper("PEW Research Center"),
+    fontface = 'bold',
+    size = 4
+    ) +
+  annotate(
+    'text',
+    x = -14,
+    y = -0.6,
+    hjust = 0,
+    label = "ggplot remake by Jens Hau",
+    color = 'grey40',
+    size = 3.5
+    ) +
+  annotate(
+    'rect',
+    xmin = 77.5,
+    xmax = 102, 5,
+    ymin = 0.5,
+    ymax = 9.8,
+    fill = 'grey95',
+  ) +
+  annotate(
+    'text',
+    label = c('Dem-\nRep', us_adults2$dem_rep),
+    x = 90,
+    y = c(9.5,us_adults$task), # using that task is a factor, which is coded as numbers
+    lineheight = 1,
+    size = 4,
+    fontface = c('bold', rep('plain', length(us_adults2$dem_rep))) # repeating plain so only title is bold
+  ) +
+  annotate( # horizontal lines below and above the graph
+    'segment',
+    x = -72.3,
+    xend = 120,
+    y = -1.1,
+    yend = -1.1
+  ) +
+  annotate( # horizontal lines below and above the graph
+    'segment',
+    x = -72.3,
+    xend = 120,
+    y = 12,
+    yend = 12
+  ) +
+  coord_cartesian(clip = 'off', # enables space outside plotting area for text and so on
+                  xlim = c(0,95),
+                  ylim = c(1, 9.5),
+  ) +
+  theme_minimal(
+    base_size = 14,
+    base_family = 'Source Sans Pro'
+  ) +
+  scale_x_continuous(breaks = NULL) +
+  scale_color_manual(values = color_palette2) +
+  theme(
+    legend.position = "none",
+    plot.title.position = "plot",
+    plot.caption.position = "plot",
+    plot.caption = element_text(
+      color = 'grey40', size = 10.5, hjust = 0,
+      margin = margin(t = 0, b = 1.75, unit = 'cm')
+    ),
+    plot.title = element_text(
+      face = 'bold',
+      margin = margin(t= 0.75, b = 0.5, unit = 'cm')
+    ),
+    plot.subtitle = element_markdown(
+      size = 14, color = 'grey40',lineheight = 1.25,
+      margin = margin(b = 0, unit = 'cm')),
+    axis.text.y = element_text(face = 'bold'),
+    panel.grid.major = element_line(linetype = 3, color = 'black')
+    )
+    
+```
+
+Saving the plot
+```{r}
+ggsave("C:/Users/PC/Desktop/R Working directory/pew_ggplot.png", plot = p, bg = "white", width = 639*0.0104166667, height = 932*0.0104166667, dpi = 300) # number is pixels to inches
+
+```
+
+
+
